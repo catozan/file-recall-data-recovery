@@ -1,0 +1,325 @@
+Imports Microsoft.Extensions.Logging
+Imports DataRecoveryCore.Recovery
+Imports CommandLine
+Imports System.IO
+Imports System.Text.Json
+Imports System.Diagnostics
+
+Module Program
+
+    Private _logger As ILogger
+    Private _loggerFactory As ILoggerFactory
+
+    Sub Main(args As String())
+        Try
+            ' Initialize logging
+            InitializeLogging(False) ' Will be updated based on command line args
+
+            ' Parse command line arguments
+            Dim result = Parser.Default.ParseArguments(Of CommandLineOptions)(args)
+            result.WithParsed(AddressOf RunRecovery).WithNotParsed(AddressOf HandleParseError)
+
+        Catch ex As Exception
+            Console.WriteLine($"Critical error: {ex.Message}")
+            Environment.ExitCode = 1
+        Finally
+            _loggerFactory?.Dispose()
+        End Try
+    End Sub
+
+    Private Sub InitializeLogging(verbose As Boolean)
+        _loggerFactory = LoggerFactory.Create(Sub(builder)
+            builder.AddConsole()
+            If verbose Then
+                builder.SetMinimumLevel(LogLevel.Debug)
+            Else
+                builder.SetMinimumLevel(LogLevel.Information)
+            End If
+        End Sub)
+        
+        _logger = _loggerFactory.CreateLogger("RecoveryConsole")
+    End Sub
+
+    Private Async Sub RunRecovery(options As CommandLineOptions)
+        Try
+            ' Reinitialize logging with correct verbosity
+            _loggerFactory?.Dispose()
+            InitializeLogging(options.Verbose)
+
+            _logger.LogInformation("=== Data Recovery Tool v1.0.0 ===")
+            _logger.LogInformation($"Starting recovery on drive {options.DriveNumber} with mode: {options.Mode}")
+
+            ' Validate options
+            If Not ValidateOptions(options) Then
+                Environment.ExitCode = 1
+                Return
+            End If
+
+            ' Check administrator privileges
+            If Not DataRecoveryCore.DiskAccess.DiskAccessManager.HasAdministratorPrivileges() Then
+                Console.WriteLine()
+                Console.ForegroundColor = ConsoleColor.Red
+                Console.WriteLine("ERROR: Administrator privileges required!")
+                Console.WriteLine("Please run this application as Administrator.")
+                Console.ResetColor()
+                Environment.ExitCode = 1
+                Return
+            End If
+
+            ' Create output directory
+            If Not Directory.Exists(options.OutputDirectory) Then
+                Directory.CreateDirectory(options.OutputDirectory)
+                _logger.LogInformation($"Created output directory: {options.OutputDirectory}")
+            End If
+
+            ' Initialize recovery engine
+            Using recoveryEngine As New RecoveryEngine(_loggerFactory.CreateLogger(Of RecoveryEngine))
+                If Not recoveryEngine.Initialize(options.DriveNumber) Then
+                    _logger.LogError("Failed to initialize recovery engine")
+                    Environment.ExitCode = 1
+                    Return
+                End If
+
+                ' Start recovery process
+                _logger.LogInformation("Starting recovery process...")
+                Dim stopwatch = Stopwatch.StartNew()
+
+                Dim recoveryResult = Await recoveryEngine.RecoverFilesAsync(
+                    CType(options.Mode, DataRecoveryCore.Recovery.RecoveryEngine.RecoveryMode),
+                    options.GetExtensionsArray(),
+                    options.MaxScanSize,
+                    options.OutputDirectory
+                )
+
+                stopwatch.Stop()
+
+                ' Display results
+                DisplayResults(recoveryResult, options)
+
+                ' Generate report if requested
+                If Not String.IsNullOrEmpty(options.ReportFile) Then
+                    Await GenerateReport(recoveryResult, options, stopwatch.Elapsed)
+                End If
+
+                _logger.LogInformation("Recovery operation completed successfully")
+            End Using
+
+        Catch ex As Exception
+            _logger.LogError(ex, "Error during recovery operation")
+            Environment.ExitCode = 1
+        End Try
+    End Sub
+
+    Private Function ValidateOptions(options As CommandLineOptions) As Boolean
+        Dim isValid As Boolean = True
+
+        ' Validate drive number
+        If options.DriveNumber < 0 Then
+            _logger.LogError("Drive number must be non-negative")
+            isValid = False
+        End If
+
+        ' Validate output directory path
+        Try
+            Dim fullPath = Path.GetFullPath(options.OutputDirectory)
+            If Not IsValidPath(fullPath) Then
+                _logger.LogError($"Invalid output directory path: {options.OutputDirectory}")
+                isValid = False
+            End If
+        Catch ex As Exception
+            _logger.LogError($"Invalid output directory path: {options.OutputDirectory}")
+            isValid = False
+        End Try
+
+        ' Validate max scan size
+        If options.MaxScanSize <= 0 Then
+            _logger.LogError("Maximum scan size must be positive")
+            isValid = False
+        End If
+
+        ' Validate confidence level
+        If options.MinConfidence < 0.0 OrElse options.MinConfidence > 1.0 Then
+            _logger.LogError("Confidence level must be between 0.0 and 1.0")
+            isValid = False
+        End If
+
+        ' Validate thread count
+        If options.ThreadCount <= 0 Then
+            _logger.LogError("Thread count must be positive")
+            isValid = False
+        End If
+
+        ' Validate extensions
+        Dim extensions = options.GetExtensionsArray()
+        If extensions IsNot Nothing Then
+            For Each ext In extensions
+                If String.IsNullOrWhiteSpace(ext) OrElse ext.Contains(" "c) Then
+                    _logger.LogError($"Invalid file extension: {ext}")
+                    isValid = False
+                End If
+            Next
+        End If
+
+        Return isValid
+    End Function
+
+    Private Function IsValidPath(path As String) As Boolean
+        Try
+            Return Not String.IsNullOrWhiteSpace(path) AndAlso 
+                   path.IndexOfAny(Path.GetInvalidPathChars()) = -1
+        Catch
+            Return False
+        End Try
+    End Function
+
+    Private Sub DisplayResults(result As DataRecoveryCore.Recovery.RecoveryEngine.RecoveryResult, options As CommandLineOptions)
+        Console.WriteLine()
+        Console.WriteLine("=== RECOVERY RESULTS ===")
+        Console.WriteLine($"Scan Mode: {result.ScanMode}")
+        Console.WriteLine($"Total Files Found: {result.TotalFilesFound:N0}")
+        Console.WriteLine($"Total Data Recovered: {FormatBytes(result.TotalBytesRecovered)}")
+        Console.WriteLine($"Scan Duration: {result.ScanDuration.TotalMinutes:F1} minutes")
+        Console.WriteLine($"Errors Encountered: {result.ErrorCount:N0}")
+        
+        ' Display recovery success rate
+        Dim successfulRecoveries = result.RecoveredFiles.Count(Function(f) f.IsSuccessful)
+        Dim successRate = If(result.TotalFilesFound > 0, (successfulRecoveries / result.TotalFilesFound) * 100, 0)
+        Console.WriteLine($"Success Rate: {successRate:F1}% ({successfulRecoveries:N0}/{result.TotalFilesFound:N0})")
+
+        ' Display file type breakdown
+        If result.RecoveredFiles.Any() Then
+            Console.WriteLine()
+            Console.WriteLine("File Type Breakdown:")
+            Dim fileTypeGroups = result.RecoveredFiles.
+                Where(Function(f) f.IsSuccessful).
+                GroupBy(Function(f) f.FileInfo.FileCategory).
+                OrderByDescending(Function(g) g.Count())
+
+            For Each group In fileTypeGroups
+                Console.WriteLine($"  {group.Key}: {group.Count():N0} files ({FormatBytes(group.Sum(Function(f) f.Data?.Length ?? 0))})")
+            Next
+        End If
+
+        ' Display confidence level distribution
+        If result.RecoveredFiles.Any() Then
+            Console.WriteLine()
+            Console.WriteLine("Confidence Level Distribution:")
+            Dim confidenceRanges = {
+                ("High (>80%)", result.RecoveredFiles.Count(Function(f) f.FileInfo.ConfidenceLevel > 0.8)),
+                ("Medium (50-80%)", result.RecoveredFiles.Count(Function(f) f.FileInfo.ConfidenceLevel >= 0.5 AndAlso f.FileInfo.ConfidenceLevel <= 0.8)),
+                ("Low (<50%)", result.RecoveredFiles.Count(Function(f) f.FileInfo.ConfidenceLevel < 0.5))
+            }
+
+            For Each range In confidenceRanges
+                If range.Item2 > 0 Then
+                    Console.WriteLine($"  {range.Item1}: {range.Item2:N0} files")
+                End If
+            Next
+        End If
+
+        Console.WriteLine()
+        Console.WriteLine($"Recovery output saved to: {options.OutputDirectory}")
+    End Sub
+
+    Private Function FormatBytes(bytes As Long) As String
+        Dim sizes() As String = {"B", "KB", "MB", "GB", "TB"}
+        Dim order As Integer = 0
+        Dim value As Double = bytes
+
+        While value >= 1024 AndAlso order < sizes.Length - 1
+            order += 1
+            value = value / 1024
+        End While
+
+        Return $"{value:F1} {sizes(order)}"
+    End Function
+
+    Private Async Function GenerateReport(result As DataRecoveryCore.Recovery.RecoveryEngine.RecoveryResult, 
+                                        options As CommandLineOptions, 
+                                        totalDuration As TimeSpan) As Task
+        Try
+            _logger.LogInformation($"Generating detailed report: {options.ReportFile}")
+
+            Dim report As New Dictionary(Of String, Object) From {
+                {"GeneratedAt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")},
+                {"Version", "1.0.0"},
+                {"ScanParameters", New Dictionary(Of String, Object) From {
+                    {"DriveNumber", options.DriveNumber},
+                    {"ScanMode", result.ScanMode.ToString()},
+                    {"MaxScanSize", options.MaxScanSize},
+                    {"TargetExtensions", options.Extensions},
+                    {"MinConfidence", options.MinConfidence},
+                    {"OutputDirectory", options.OutputDirectory}
+                }},
+                {"Results", New Dictionary(Of String, Object) From {
+                    {"TotalFilesFound", result.TotalFilesFound},
+                    {"TotalBytesRecovered", result.TotalBytesRecovered},
+                    {"ScanDurationMinutes", result.ScanDuration.TotalMinutes},
+                    {"ErrorCount", result.ErrorCount},
+                    {"SuccessfulRecoveries", result.RecoveredFiles.Count(Function(f) f.IsSuccessful)}
+                }},
+                {"FileTypeBreakdown", result.RecoveredFiles.
+                    Where(Function(f) f.IsSuccessful).
+                    GroupBy(Function(f) f.FileInfo.FileCategory).
+                    ToDictionary(Function(g) g.Key.ToString(), Function(g) New Dictionary(Of String, Object) From {
+                        {"Count", g.Count()},
+                        {"TotalBytes", g.Sum(Function(f) f.Data?.Length ?? 0)}
+                    })
+                },
+                {"DetailedFiles", result.RecoveredFiles.Take(1000).Select(Function(f) New Dictionary(Of String, Object) From {
+                    {"FileName", f.FileInfo.FileName},
+                    {"FileSize", f.FileInfo.FileSize},
+                    {"Extension", f.FileInfo.FileExtension},
+                    {"Category", f.FileInfo.FileCategory.ToString()},
+                    {"RecoveryMethod", f.FileInfo.RecoveryMethod},
+                    {"ConfidenceLevel", f.FileInfo.ConfidenceLevel},
+                    {"IsSuccessful", f.IsSuccessful},
+                    {"ErrorMessage", f.ErrorMessage},
+                    {"StartOffset", f.FileInfo.StartOffset},
+                    {"CreatedTime", f.FileInfo.CreatedTime.ToString("yyyy-MM-dd HH:mm:ss")},
+                    {"ModifiedTime", f.FileInfo.ModifiedTime.ToString("yyyy-MM-dd HH:mm:ss")}
+                }).ToList()}
+            }
+
+            Dim jsonOptions As New JsonSerializerOptions With {
+                .WriteIndented = True,
+                .PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            }
+
+            Dim jsonReport = JsonSerializer.Serialize(report, jsonOptions)
+            Await File.WriteAllTextAsync(options.ReportFile, jsonReport)
+
+            _logger.LogInformation("Detailed report generated successfully")
+
+        Catch ex As Exception
+            _logger.LogWarning(ex, "Failed to generate detailed report")
+        End Try
+    End Function
+
+    Private Sub HandleParseError(errors As IEnumerable(Of [Error]))
+        Console.WriteLine()
+        Console.ForegroundColor = ConsoleColor.Red
+        Console.WriteLine("Invalid command line arguments!")
+        Console.ResetColor()
+        Console.WriteLine()
+        Console.WriteLine("Usage examples:")
+        Console.WriteLine("  RecoveryConsole.exe -d 0 -o ""C:\Recovery"" -m Combined")
+        Console.WriteLine("  RecoveryConsole.exe -d 1 -o ""D:\RecoveredFiles"" -e ""jpg,png,docx"" -m SignatureOnly")
+        Console.WriteLine("  RecoveryConsole.exe -d 0 -o ""C:\Recovery"" -m DeepScan -s 50000000000 -v")
+        Console.WriteLine()
+        Console.WriteLine("Options:")
+        Console.WriteLine("  -d, --drive        Physical drive number (required)")
+        Console.WriteLine("  -o, --output       Output directory (required)")
+        Console.WriteLine("  -m, --mode         Recovery mode: FileSystemOnly, SignatureOnly, Combined, DeepScan")
+        Console.WriteLine("  -e, --extensions   Target file extensions (comma-separated)")
+        Console.WriteLine("  -s, --maxsize      Maximum scan size in bytes")
+        Console.WriteLine("  -v, --verbose      Enable verbose logging")
+        Console.WriteLine("  -r, --report       Generate detailed JSON report")
+        Console.WriteLine("  -c, --confidence   Minimum confidence level (0.0-1.0)")
+        Console.WriteLine("  -t, --threads      Number of processing threads")
+        Console.WriteLine()
+        
+        Environment.ExitCode = 1
+    End Sub
+
+End Module

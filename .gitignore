@@ -1,0 +1,56 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.userprefs
+.vscode/
+
+# Rider files
+.idea/
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.bak
+
+# Recovery output (for testing)
+RecoveryOutput/
+TestData/
+
+# Sensitive data
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Performance profiling
+*.psess
+*.vsp
+*.vspx
+
+# JetBrains Rider
+.idea/
