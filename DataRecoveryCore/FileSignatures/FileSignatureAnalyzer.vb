@@ -212,23 +212,28 @@ Namespace FileSignatures
         ''' Finds footer signature in data
         ''' </summary>
         Private Function FindFooter(data As Byte(), startPosition As Integer, signature As FileSignature) As Integer
-            Dim searchLimit As Integer = Math.Min(data.Length - signature.Footer.Length, startPosition + signature.MaxFileSize)
-            
-            For i As Integer = startPosition + signature.Header.Length To searchLimit
-                Dim match As Boolean = True
-                For j As Integer = 0 To signature.Footer.Length - 1
-                    If data(i + j) <> signature.Footer(j) Then
-                        match = False
-                        Exit For
+            Try
+                Dim maxSearchSize As Long = Math.Min(signature.MaxFileSize, data.Length - startPosition - signature.Footer.Length)
+                Dim searchLimit As Integer = CInt(Math.Min(data.Length - signature.Footer.Length, startPosition + maxSearchSize))
+                
+                For i As Integer = startPosition + signature.Header.Length To searchLimit
+                    Dim match As Boolean = True
+                    For j As Integer = 0 To signature.Footer.Length - 1
+                        If data(i + j) <> signature.Footer(j) Then
+                            match = False
+                            Exit For
+                        End If
+                    Next
+                    
+                    If match Then
+                        Return i
                     End If
                 Next
-                
-                If match Then
-                    Return i
-                End If
-            Next
 
-            Return -1
+                Return -1
+            Catch ex As Exception
+                Return -1
+            End Try
         End Function
 
         ''' <summary>
