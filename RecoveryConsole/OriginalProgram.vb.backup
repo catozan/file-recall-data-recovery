@@ -5,7 +5,7 @@ Imports System.IO
 Imports System.Text.Json
 Imports System.Diagnostics
 
-Module Program
+Module OriginalProgram
 
     Private _logger As ILogger
     Private _loggerFactory As ILoggerFactory
@@ -20,7 +20,7 @@ Module Program
             result.WithParsed(AddressOf RunRecovery).WithNotParsed(AddressOf HandleParseError)
 
         Catch ex As Exception
-            System.System.Console.WriteLine($"Critical error: {ex.Message}")
+            System.Console.WriteLine($"Critical error: {ex.Message}")
             Environment.ExitCode = 1
         Finally
             _loggerFactory?.Dispose()
