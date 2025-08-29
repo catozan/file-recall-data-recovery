@@ -22,7 +22,7 @@ Namespace DiskAccess
         Private Const FILE_SHARE_WRITE As UInteger = 2
         Private Const OPEN_EXISTING As UInteger = 3
         Private Const FILE_FLAG_NO_BUFFERING As UInteger = &H20000000UI
-        Private Const INVALID_HANDLE_VALUE As IntPtr = -1
+        Private Shared ReadOnly INVALID_HANDLE_VALUE As IntPtr = New IntPtr(-1)
 
         ' IOCTL codes for disk operations
         Private Const IOCTL_DISK_GET_DRIVE_GEOMETRY As UInteger = &H70000UI
@@ -103,7 +103,8 @@ Namespace DiskAccess
         End Function
 
         Public Sub New(logger As ILogger(Of DiskAccessManager))
-            _logger = logger ?? throw New ArgumentNullException(NameOf(logger))
+            If logger Is Nothing Then Throw New ArgumentNullException(NameOf(logger))
+            _logger = logger
         End Sub
 
         ''' <summary>
@@ -147,10 +148,10 @@ Namespace DiskAccess
         ''' <summary>
         ''' Gets disk geometry information including sector size and total size
         ''' </summary>
-        Public Function GetDiskGeometry() As DISK_GEOMETRY?
+        Public Function GetDiskGeometry() As DISK_GEOMETRY
             If _diskHandle = IntPtr.Zero Then
                 _logger.LogWarning("Attempted to get geometry on closed disk handle")
-                Return Nothing
+                Return New DISK_GEOMETRY() ' Return empty structure instead of null
             End If
 
             Try
@@ -176,7 +177,7 @@ Namespace DiskAccess
                     Else
                         Dim errorCode = Marshal.GetLastWin32Error()
                         _logger.LogError($"Failed to get disk geometry. Error: {errorCode}")
-                        Return Nothing
+                        Return New DISK_GEOMETRY()
                     End If
 
                 Finally
@@ -185,7 +186,7 @@ Namespace DiskAccess
 
             Catch ex As Exception
                 _logger.LogError(ex, "Exception getting disk geometry")
-                Return Nothing
+                Return New DISK_GEOMETRY()
             End Try
         End Function
 

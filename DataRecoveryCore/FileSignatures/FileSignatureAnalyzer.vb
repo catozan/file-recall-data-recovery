@@ -70,7 +70,8 @@ Namespace FileSignatures
         Private ReadOnly _signatures As List(Of FileSignature)
 
         Public Sub New(logger As ILogger(Of FileSignatureAnalyzer))
-            _logger = logger ?? throw New ArgumentNullException(NameOf(logger))
+            If logger Is Nothing Then Throw New ArgumentNullException(NameOf(logger))
+            _logger = logger
             _signatures = New List(Of FileSignature)
             InitializeSignatures()
         End Sub

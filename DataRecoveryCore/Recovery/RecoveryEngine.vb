@@ -51,10 +51,10 @@ Namespace Recovery
             Public Property IsComplete As Boolean
             Public Property FileCategory As FileCategory
             Public Property StartOffset As Long
-            Public Property DataRuns As List(Of DataRun)
+            Public Property DataRuns As List(Of FileSystems.NtfsParser.DataRun)
 
             Public Sub New()
-                DataRuns = New List(Of DataRun)
+                DataRuns = New List(Of FileSystems.NtfsParser.DataRun)
             End Sub
         End Class
 
@@ -71,7 +71,8 @@ Namespace Recovery
         End Class
 
         Public Sub New(logger As ILogger(Of RecoveryEngine))
-            _logger = logger ?? throw New ArgumentNullException(NameOf(logger))
+            If logger Is Nothing Then Throw New ArgumentNullException(NameOf(logger))
+            _logger = logger
             _diskAccess = New DiskAccessManager(_logger)
             _signatureAnalyzer = New FileSignatureAnalyzer(_logger)
         End Sub
@@ -236,12 +237,12 @@ Namespace Recovery
                 Try
                     ' Get disk geometry for sector size
                     Dim geometry = _diskAccess.GetDiskGeometry()
-                    If Not geometry.HasValue Then
+                    If geometry.BytesPerSector = 0 Then
                         _logger.LogError("Failed to get disk geometry")
                         Return
                     End If
 
-                    Dim bytesPerSector As Integer = CInt(geometry.Value.BytesPerSector)
+                    Dim bytesPerSector As Integer = CInt(geometry.BytesPerSector)
                     Dim sectorsPerRead As Integer = 1024 ' Read 512KB chunks
                     Dim bytesPerRead As Integer = sectorsPerRead * bytesPerSector
                     

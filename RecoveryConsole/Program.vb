@@ -20,7 +20,7 @@ Module Program
             result.WithParsed(AddressOf RunRecovery).WithNotParsed(AddressOf HandleParseError)
 
         Catch ex As Exception
-            Console.WriteLine($"Critical error: {ex.Message}")
+            System.System.Console.WriteLine($"Critical error: {ex.Message}")
             Environment.ExitCode = 1
         Finally
             _loggerFactory?.Dispose()
@@ -57,11 +57,11 @@ Module Program
 
             ' Check administrator privileges
             If Not DataRecoveryCore.DiskAccess.DiskAccessManager.HasAdministratorPrivileges() Then
-                Console.WriteLine()
-                Console.ForegroundColor = ConsoleColor.Red
-                Console.WriteLine("ERROR: Administrator privileges required!")
-                Console.WriteLine("Please run this application as Administrator.")
-                Console.ResetColor()
+                System.Console.WriteLine()
+                System.Console.ForegroundColor = ConsoleColor.Red
+                System.Console.WriteLine("ERROR: Administrator privileges required!")
+                System.Console.WriteLine("Please run this application as Administrator.")
+                System.Console.ResetColor()
                 Environment.ExitCode = 1
                 Return
             End If
@@ -82,7 +82,8 @@ Module Program
 
                 ' Start recovery process
                 _logger.LogInformation("Starting recovery process...")
-                Dim stopwatch = Stopwatch.StartNew()
+                Dim stopwatch As New Stopwatch()
+                stopwatch.Start()
 
                 Dim recoveryResult = Await recoveryEngine.RecoverFilesAsync(
                     CType(options.Mode, DataRecoveryCore.Recovery.RecoveryEngine.RecoveryMode),
@@ -122,7 +123,8 @@ Module Program
         ' Validate output directory path
         Try
             Dim fullPath = Path.GetFullPath(options.OutputDirectory)
-            If Not IsValidPath(fullPath) Then
+            Dim invalidChars As Char() = Path.GetInvalidPathChars()
+            If String.IsNullOrWhiteSpace(fullPath) OrElse fullPath.IndexOfAny(invalidChars) <> -1 Then
                 _logger.LogError($"Invalid output directory path: {options.OutputDirectory}")
                 isValid = False
             End If
@@ -173,37 +175,37 @@ Module Program
     End Function
 
     Private Sub DisplayResults(result As DataRecoveryCore.Recovery.RecoveryEngine.RecoveryResult, options As CommandLineOptions)
-        Console.WriteLine()
-        Console.WriteLine("=== RECOVERY RESULTS ===")
-        Console.WriteLine($"Scan Mode: {result.ScanMode}")
-        Console.WriteLine($"Total Files Found: {result.TotalFilesFound:N0}")
-        Console.WriteLine($"Total Data Recovered: {FormatBytes(result.TotalBytesRecovered)}")
-        Console.WriteLine($"Scan Duration: {result.ScanDuration.TotalMinutes:F1} minutes")
-        Console.WriteLine($"Errors Encountered: {result.ErrorCount:N0}")
+        System.Console.WriteLine()
+        System.Console.WriteLine("=== RECOVERY RESULTS ===")
+        System.Console.WriteLine($"Scan Mode: {result.ScanMode}")
+        System.Console.WriteLine($"Total Files Found: {result.TotalFilesFound:N0}")
+        System.Console.WriteLine($"Total Data Recovered: {FormatBytes(result.TotalBytesRecovered)}")
+        System.Console.WriteLine($"Scan Duration: {result.ScanDuration.TotalMinutes:F1} minutes")
+        System.Console.WriteLine($"Errors Encountered: {result.ErrorCount:N0}")
         
         ' Display recovery success rate
         Dim successfulRecoveries = result.RecoveredFiles.Count(Function(f) f.IsSuccessful)
         Dim successRate = If(result.TotalFilesFound > 0, (successfulRecoveries / result.TotalFilesFound) * 100, 0)
-        Console.WriteLine($"Success Rate: {successRate:F1}% ({successfulRecoveries:N0}/{result.TotalFilesFound:N0})")
+        System.Console.WriteLine($"Success Rate: {successRate:F1}% ({successfulRecoveries:N0}/{result.TotalFilesFound:N0})")
 
         ' Display file type breakdown
         If result.RecoveredFiles.Any() Then
-            Console.WriteLine()
-            Console.WriteLine("File Type Breakdown:")
+            System.Console.WriteLine()
+            System.Console.WriteLine("File Type Breakdown:")
             Dim fileTypeGroups = result.RecoveredFiles.
                 Where(Function(f) f.IsSuccessful).
                 GroupBy(Function(f) f.FileInfo.FileCategory).
                 OrderByDescending(Function(g) g.Count())
 
             For Each group In fileTypeGroups
-                Console.WriteLine($"  {group.Key}: {group.Count():N0} files ({FormatBytes(group.Sum(Function(f) f.Data?.Length ?? 0))})")
+                System.Console.WriteLine($"  {group.Key}: {group.Count():N0} files ({FormatBytes(group.Sum(Function(f) If(f.Data Is Nothing, 0, f.Data.Length)))})")
             Next
         End If
 
         ' Display confidence level distribution
         If result.RecoveredFiles.Any() Then
-            Console.WriteLine()
-            Console.WriteLine("Confidence Level Distribution:")
+            System.Console.WriteLine()
+            System.Console.WriteLine("Confidence Level Distribution:")
             Dim confidenceRanges = {
                 ("High (>80%)", result.RecoveredFiles.Count(Function(f) f.FileInfo.ConfidenceLevel > 0.8)),
                 ("Medium (50-80%)", result.RecoveredFiles.Count(Function(f) f.FileInfo.ConfidenceLevel >= 0.5 AndAlso f.FileInfo.ConfidenceLevel <= 0.8)),
@@ -212,13 +214,13 @@ Module Program
 
             For Each range In confidenceRanges
                 If range.Item2 > 0 Then
-                    Console.WriteLine($"  {range.Item1}: {range.Item2:N0} files")
+                    System.Console.WriteLine($"  {range.Item1}: {range.Item2:N0} files")
                 End If
             Next
         End If
 
-        Console.WriteLine()
-        Console.WriteLine($"Recovery output saved to: {options.OutputDirectory}")
+        System.Console.WriteLine()
+        System.Console.WriteLine($"Recovery output saved to: {options.OutputDirectory}")
     End Sub
 
     Private Function FormatBytes(bytes As Long) As String
@@ -263,7 +265,7 @@ Module Program
                     GroupBy(Function(f) f.FileInfo.FileCategory).
                     ToDictionary(Function(g) g.Key.ToString(), Function(g) New Dictionary(Of String, Object) From {
                         {"Count", g.Count()},
-                        {"TotalBytes", g.Sum(Function(f) f.Data?.Length ?? 0)}
+                        {"TotalBytes", g.Sum(Function(f) If(f.Data Is Nothing, 0, f.Data.Length))}
                     })
                 },
                 {"DetailedFiles", result.RecoveredFiles.Take(1000).Select(Function(f) New Dictionary(Of String, Object) From {
@@ -297,27 +299,27 @@ Module Program
     End Function
 
     Private Sub HandleParseError(errors As IEnumerable(Of [Error]))
-        Console.WriteLine()
-        Console.ForegroundColor = ConsoleColor.Red
-        Console.WriteLine("Invalid command line arguments!")
-        Console.ResetColor()
-        Console.WriteLine()
-        Console.WriteLine("Usage examples:")
-        Console.WriteLine("  RecoveryConsole.exe -d 0 -o ""C:\Recovery"" -m Combined")
-        Console.WriteLine("  RecoveryConsole.exe -d 1 -o ""D:\RecoveredFiles"" -e ""jpg,png,docx"" -m SignatureOnly")
-        Console.WriteLine("  RecoveryConsole.exe -d 0 -o ""C:\Recovery"" -m DeepScan -s 50000000000 -v")
-        Console.WriteLine()
-        Console.WriteLine("Options:")
-        Console.WriteLine("  -d, --drive        Physical drive number (required)")
-        Console.WriteLine("  -o, --output       Output directory (required)")
-        Console.WriteLine("  -m, --mode         Recovery mode: FileSystemOnly, SignatureOnly, Combined, DeepScan")
-        Console.WriteLine("  -e, --extensions   Target file extensions (comma-separated)")
-        Console.WriteLine("  -s, --maxsize      Maximum scan size in bytes")
-        Console.WriteLine("  -v, --verbose      Enable verbose logging")
-        Console.WriteLine("  -r, --report       Generate detailed JSON report")
-        Console.WriteLine("  -c, --confidence   Minimum confidence level (0.0-1.0)")
-        Console.WriteLine("  -t, --threads      Number of processing threads")
-        Console.WriteLine()
+        System.Console.WriteLine()
+        System.Console.ForegroundColor = ConsoleColor.Red
+        System.Console.WriteLine("Invalid command line arguments!")
+        System.Console.ResetColor()
+        System.Console.WriteLine()
+        System.Console.WriteLine("Usage examples:")
+        System.Console.WriteLine("  RecoverySystem.Console.exe -d 0 -o ""C:\Recovery"" -m Combined")
+        System.Console.WriteLine("  RecoverySystem.Console.exe -d 1 -o ""D:\RecoveredFiles"" -e ""jpg,png,docx"" -m SignatureOnly")
+        System.Console.WriteLine("  RecoverySystem.Console.exe -d 0 -o ""C:\Recovery"" -m DeepScan -s 50000000000 -v")
+        System.Console.WriteLine()
+        System.Console.WriteLine("Options:")
+        System.Console.WriteLine("  -d, --drive        Physical drive number (required)")
+        System.Console.WriteLine("  -o, --output       Output directory (required)")
+        System.Console.WriteLine("  -m, --mode         Recovery mode: FileSystemOnly, SignatureOnly, Combined, DeepScan")
+        System.Console.WriteLine("  -e, --extensions   Target file extensions (comma-separated)")
+        System.Console.WriteLine("  -s, --maxsize      Maximum scan size in bytes")
+        System.Console.WriteLine("  -v, --verbose      Enable verbose logging")
+        System.Console.WriteLine("  -r, --report       Generate detailed JSON report")
+        System.Console.WriteLine("  -c, --confidence   Minimum confidence level (0.0-1.0)")
+        System.Console.WriteLine("  -t, --threads      Number of processing threads")
+        System.Console.WriteLine()
         
         Environment.ExitCode = 1
     End Sub

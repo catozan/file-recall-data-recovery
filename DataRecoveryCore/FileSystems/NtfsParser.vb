@@ -130,8 +130,10 @@ Namespace FileSystems
         End Class
 
         Public Sub New(logger As ILogger(Of NtfsParser), diskAccess As DiskAccessManager)
-            _logger = logger ?? throw New ArgumentNullException(NameOf(logger))
-            _diskAccess = diskAccess ?? throw New ArgumentNullException(NameOf(diskAccess))
+            If logger Is Nothing Then Throw New ArgumentNullException(NameOf(logger))
+            If diskAccess Is Nothing Then Throw New ArgumentNullException(NameOf(diskAccess))
+            _logger = logger
+            _diskAccess = diskAccess
         End Sub
 
         ''' <summary>

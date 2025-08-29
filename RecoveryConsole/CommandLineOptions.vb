@@ -18,7 +18,7 @@ Public Class CommandLineOptions
     <[Option]("e"c, "extensions", Required:=False, HelpText:="Target file extensions (comma-separated, e.g., 'jpg,png,docx')")>
     Public Property Extensions As String
 
-    <[Option]("s"c, "maxsize", Required:=False, Default:=CLng(100) * 1024 * 1024 * 1024, HelpText:="Maximum scan size in bytes (default: 100GB)")>
+    <[Option]("s"c, "maxsize", Required:=False, Default:=107374182400L, HelpText:="Maximum scan size in bytes (default: 100GB)")>
     Public Property MaxScanSize As Long
 
     <[Option]("v"c, "verbose", Required:=False, Default:=False, HelpText:="Enable verbose logging")>
@@ -27,7 +27,7 @@ Public Class CommandLineOptions
     <[Option]("r"c, "report", Required:=False, HelpText:="Generate detailed recovery report to specified file")>
     Public Property ReportFile As String
 
-    <[Option]("t"c, "threads", Required:=False, Default:=Environment.ProcessorCount, HelpText:="Number of processing threads")>
+    <[Option]("t"c, "threads", Required:=False, Default:=4, HelpText:="Number of processing threads (default: 4)")>
     Public Property ThreadCount As Integer
 
     <[Option]("c"c, "confidence", Required:=False, Default:=0.5, HelpText:="Minimum confidence level for file recovery (0.0-1.0)")>
