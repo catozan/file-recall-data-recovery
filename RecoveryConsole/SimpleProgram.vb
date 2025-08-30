@@ -144,24 +144,45 @@ Module SimpleProgram
                 Return
             End If
             
+            ' NEW: Folder targeting selection
+            Dim folderSelection As ConsoleUI.FolderSelectionResult
+            Do
+                folderSelection = ConsoleUI.SelectSpecificFolder(driveSelection.SelectedDrive)
+                If folderSelection.GoBack Then
+                    ' Go back to drive selection
+                    Dim newDriveSelection = ConsoleUI.SelectTargetLocation()
+                    If Not newDriveSelection.Success Then Return
+                    driveSelection = newDriveSelection
+                    Continue Do
+                End If
+                Exit Do
+            Loop
+            
+            If Not folderSelection.Success Then
+                ConsoleUI.ShowError("Folder selection failed.")
+                Threading.Thread.Sleep(2000)
+                Return
+            End If
+            
             ' File type selection
             Dim fileTypes = ConsoleUI.SelectFileTypes()
             
-            ' Output directory selection
+            ' Output directory selection  
             Dim defaultPath = IO.Path.Combine(Environment.GetFolderPath(
                 Environment.SpecialFolder.Desktop), "FileRecall_Recovery")
             Dim outputPath = ConsoleUI.SelectOutputDirectory(defaultPath)
             
-            ' Confirmation with all settings
-            If Not ConsoleUI.ConfirmRecovery(driveSelection, fileTypes, modeName) Then
+            ' Enhanced confirmation with folder info
+            If Not ConsoleUI.ConfirmRecovery(driveSelection, fileTypes, modeName, folderSelection) Then
                 ConsoleUI.ShowInfo("Recovery cancelled by user.")
                 Threading.Thread.Sleep(2000)
                 Return
             End If
             
-            ' Execute recovery with visual progress
+            ' Execute recovery with folder targeting
             Await ExecuteRecoveryWithVisuals(driveSelection.PhysicalDriveNumber, 
-                                           mode, outputPath, fileTypes, modeName, logger)
+                                           mode, outputPath, fileTypes, modeName, 
+                                           folderSelection, logger)
             
         Catch ex As Exception
             ConsoleUI.ShowError($"Recovery session failed: {ex.Message}")
@@ -175,6 +196,7 @@ Module SimpleProgram
                                                      outputPath As String, 
                                                      fileTypes As String(),
                                                      modeName As String,
+                                                     folderSelection As ConsoleUI.FolderSelectionResult,
                                                      logger As ILogger(Of RecoveryEngine)) As Task
         
         System.Console.Clear()
@@ -222,14 +244,15 @@ Module SimpleProgram
             System.Console.WriteLine("   ⚠️  IMPORTANT: Please do not interrupt this process!")
             System.Console.WriteLine("   📊 Recovery progress will be displayed below...")
             System.Console.WriteLine()
+            System.Console.WriteLine("   🔍 Starting recovery operation...")
             
-            ' Start recovery with visual feedback
-            Dim progressTimer As New Threading.Timer(Sub() ShowSpinner(), Nothing, 
-                                                   TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2))
+            ' Start recovery without spinner to avoid console conflicts
+            'Dim progressTimer As New Threading.Timer(Sub() ShowSpinner(), Nothing, 
+            '                                       TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2))
             
             Dim result = Await recovery.RecoverFilesAsync(mode, fileTypes, Long.MaxValue, outputPath)
             
-            progressTimer.Dispose()
+            'progressTimer.Dispose()
             
             ' Show results with enhanced visual display
             System.Console.Clear()

@@ -260,6 +260,211 @@ Namespace UserInterface
             Return SelectTargetLocation()
         End Function
 
+        Public Shared Function SelectSpecificFolder(selectedDrive As DriveInfo) As FolderSelectionResult
+            System.Console.Clear()
+            SetConsoleColors()
+            System.Console.WriteLine()
+            
+            ' Beautiful folder selection header
+            System.Console.ForegroundColor = ConsoleColor.Magenta
+            System.Console.WriteLine("    ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+            System.Console.WriteLine("    ┃                           FOLDER TARGETING OPTIONS                          ┃")
+            System.Console.WriteLine("    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.Cyan
+            System.Console.WriteLine($"    Selected Drive: {selectedDrive.Name} ({selectedDrive.VolumeLabel})")
+            System.Console.WriteLine("    Choose recovery scope for maximum efficiency:")
+            System.Console.WriteLine()
+            
+            ' Option 1 - Scan Entire Drive
+            System.Console.ForegroundColor = ConsoleColor.Green
+            System.Console.WriteLine($"    ┌── [1] {GetIcon("💾", "[D]")} SCAN ENTIRE DRIVE ─────────────────────────────────────────────┐")
+            System.Console.ForegroundColor = ConsoleColor.White
+            System.Console.WriteLine("    │    Comprehensive scan of all sectors on the selected drive               │")
+            System.Console.WriteLine("    │    ✓ Finds all recoverable files regardless of original location        │")
+            System.Console.WriteLine("    │    ⏱ Longer scan time but maximum file recovery potential               │")
+            System.Console.ForegroundColor = ConsoleColor.Green
+            System.Console.WriteLine("    └──────────────────────────────────────────────────────────────────────────┘")
+            System.Console.WriteLine()
+            
+            ' Option 2 - Target Specific Folder
+            System.Console.ForegroundColor = ConsoleColor.Blue
+            System.Console.WriteLine($"    ┌── [2] {GetIcon("📁", "[F]")} TARGET SPECIFIC FOLDER ──────────────────────────────────────────┐")
+            System.Console.ForegroundColor = ConsoleColor.White
+            System.Console.WriteLine("    │    Focus recovery on files from a specific folder location              │")
+            System.Console.WriteLine("    │    ✓ Faster, more targeted recovery process                             │")
+            System.Console.WriteLine("    │    ✓ Better organization and reduced false positives                    │")
+            System.Console.ForegroundColor = ConsoleColor.Blue
+            System.Console.WriteLine("    └──────────────────────────────────────────────────────────────────────────┘")
+            System.Console.WriteLine()
+            
+            ' Option 3 - Common Folders
+            System.Console.ForegroundColor = ConsoleColor.Yellow
+            System.Console.WriteLine($"    ┌── [3] {GetIcon("⭐", "[*]")} COMMON FOLDERS ─────────────────────────────────────────────────┐")
+            System.Console.ForegroundColor = ConsoleColor.White
+            System.Console.WriteLine("    │    Quick selection from typical user folders                            │")
+            System.Console.WriteLine("    │    📊 Desktop, Documents, Pictures, Downloads, Videos                    │")
+            System.Console.ForegroundColor = ConsoleColor.Yellow
+            System.Console.WriteLine("    └──────────────────────────────────────────────────────────────────────────┘")
+            System.Console.WriteLine()
+            
+            ' Back option
+            System.Console.ForegroundColor = ConsoleColor.Gray
+            System.Console.WriteLine($"    ┌── [0] {GetIcon("↩️", "[B]")} BACK TO DRIVE SELECTION ─────────────────────────────────────────┐")
+            System.Console.ForegroundColor = ConsoleColor.White
+            System.Console.WriteLine("    │    Return to drive selection screen                                      │")
+            System.Console.ForegroundColor = ConsoleColor.Gray
+            System.Console.WriteLine("    └──────────────────────────────────────────────────────────────────────────┘")
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.Cyan
+            System.Console.Write("    ► Enter your choice (0-3): ")
+            System.Console.ForegroundColor = ConsoleColor.White
+            
+            Dim input As String = System.Console.ReadLine()
+            Dim choice As Integer
+            
+            If Integer.TryParse(input, choice) Then
+                Select Case choice
+                    Case 0
+                        Return New FolderSelectionResult With {.Success = False, .GoBack = True}
+                    Case 1
+                        Return New FolderSelectionResult With {
+                            .Success = True,
+                            .ScanEntireDrive = True,
+                            .TargetPath = selectedDrive.Name,
+                            .Description = "Full drive scan"
+                        }
+                    Case 2
+                        Return SelectCustomFolder(selectedDrive)
+                    Case 3
+                        Return SelectCommonFolder(selectedDrive)
+                End Select
+            End If
+            
+            ShowError("Invalid selection. Please enter a number between 0-3.")
+            Threading.Thread.Sleep(2000)
+            Return SelectSpecificFolder(selectedDrive)
+        End Function
+
+        Private Shared Function SelectCustomFolder(selectedDrive As DriveInfo) As FolderSelectionResult
+            System.Console.Clear()
+            SetConsoleColors()
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.Blue
+            System.Console.WriteLine("    ╔════════════════════════════════════════════════════════════════════════════╗")
+            System.Console.WriteLine("    ║                            CUSTOM FOLDER PATH                             ║")
+            System.Console.WriteLine("    ╚════════════════════════════════════════════════════════════════════════════╝")
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.White
+            System.Console.WriteLine($"    📁 Enter the original folder path where your files were located:")
+            System.Console.WriteLine()
+            System.Console.WriteLine("    Examples:")
+            System.Console.WriteLine($"    • {selectedDrive.Name}Users\\YourName\\Desktop")
+            System.Console.WriteLine($"    • {selectedDrive.Name}Users\\YourName\\Documents\\Projects")
+            System.Console.WriteLine($"    • {selectedDrive.Name}ImportantFiles")
+            System.Console.WriteLine($"    • {selectedDrive.Name}Work\\Presentations")
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.Yellow
+            System.Console.WriteLine("    💡 Tips:")
+            System.Console.WriteLine("    • Use the exact path where files were originally stored")
+            System.Console.WriteLine("    • Include subfolders if you want to scan recursively")
+            System.Console.WriteLine("    • Leave blank to scan the entire drive")
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.Cyan
+            System.Console.Write($"    ► Folder path (or press Enter for full drive): ")
+            
+            Dim customPath As String = System.Console.ReadLine()?.Trim()
+            
+            If String.IsNullOrEmpty(customPath) Then
+                Return New FolderSelectionResult With {
+                    .Success = True,
+                    .ScanEntireDrive = True,
+                    .TargetPath = selectedDrive.Name,
+                    .Description = "Full drive scan (no path specified)"
+                }
+            Else
+                ' Ensure path starts with drive letter
+                If Not customPath.StartsWith(selectedDrive.Name) Then
+                    customPath = Path.Combine(selectedDrive.Name, customPath.TrimStart("\"c))
+                End If
+                
+                Return New FolderSelectionResult With {
+                    .Success = True,
+                    .ScanEntireDrive = False,
+                    .TargetPath = customPath,
+                    .Description = $"Target folder: {customPath}"
+                }
+            End If
+        End Function
+
+        Private Shared Function SelectCommonFolder(selectedDrive As DriveInfo) As FolderSelectionResult
+            System.Console.Clear()
+            SetConsoleColors()
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.Yellow
+            System.Console.WriteLine("    ╔════════════════════════════════════════════════════════════════════════════╗")
+            System.Console.WriteLine("    ║                              COMMON FOLDERS                               ║")
+            System.Console.WriteLine("    ╚════════════════════════════════════════════════════════════════════════════╝")
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.White
+            System.Console.WriteLine("    Select from commonly used folder locations:")
+            System.Console.WriteLine()
+            
+            Dim commonFolders As New List(Of (Index As Integer, Icon As String, Name As String, Path As String, Description As String)) From {
+                (1, "🖥️", "Desktop", $"{selectedDrive.Name}Users\*\Desktop", "Desktop files and shortcuts"),
+                (2, "📄", "Documents", $"{selectedDrive.Name}Users\*\Documents", "Word docs, PDFs, text files"),
+                (3, "🖼️", "Pictures", $"{selectedDrive.Name}Users\*\Pictures", "Photos, images, graphics"),
+                (4, "📥", "Downloads", $"{selectedDrive.Name}Users\*\Downloads", "Downloaded files and installers"),
+                (5, "🎬", "Videos", $"{selectedDrive.Name}Users\*\Videos", "Video files and recordings"),
+                (6, "🎵", "Music", $"{selectedDrive.Name}Users\*\Music", "Audio files and music"),
+                (7, "💼", "Program Files", $"{selectedDrive.Name}Program Files", "Installed applications"),
+                (8, "🗂️", "Root Directory", $"{selectedDrive.Name}", "Files in drive root")
+            }
+            
+            For Each folder In commonFolders
+                System.Console.WriteLine($"    [{folder.Index}] {GetIcon(folder.Icon, $"[{folder.Index}]")} {folder.Name}")
+                System.Console.WriteLine($"        └─ {folder.Description}")
+                System.Console.WriteLine($"        └─ Path: {folder.Path}")
+                System.Console.WriteLine()
+            Next
+            
+            System.Console.WriteLine("    [0] 🔙 Back to folder options")
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.Cyan
+            System.Console.Write($"    ► Select folder (0-8): ")
+            System.Console.ForegroundColor = ConsoleColor.White
+            
+            Dim input As String = System.Console.ReadLine()
+            Dim choice As Integer
+            
+            If Integer.TryParse(input, choice) Then
+                If choice = 0 Then
+                    Return New FolderSelectionResult With {.Success = False, .GoBack = True}
+                ElseIf choice >= 1 AndAlso choice <= commonFolders.Count Then
+                    Dim selectedFolder = commonFolders(choice - 1)
+                    Return New FolderSelectionResult With {
+                        .Success = True,
+                        .ScanEntireDrive = False,
+                        .TargetPath = selectedFolder.Path,
+                        .Description = $"{selectedFolder.Name}: {selectedFolder.Description}"
+                    }
+                End If
+            End If
+            
+            ShowError("Invalid selection. Please try again.")
+            Threading.Thread.Sleep(2000)
+            Return SelectCommonFolder(selectedDrive)
+        End Function
+
         Public Shared Function SelectFileTypes() As String()
             System.Console.Clear()
             DrawBorder("File Type Selection")
@@ -546,31 +751,61 @@ Namespace UserInterface
             System.Console.ForegroundColor = ConsoleColor.White
         End Sub
 
-        Public Shared Function ConfirmRecovery(driveInfo As DriveSelectionResult, fileTypes As String(), mode As String) As Boolean
+        Public Shared Function ConfirmRecovery(driveInfo As DriveSelectionResult, fileTypes As String(), mode As String, Optional folderInfo As FolderSelectionResult = Nothing) As Boolean
             System.Console.Clear()
-            DrawBorder("Confirm Recovery Settings")
+            SetConsoleColors()
             System.Console.WriteLine()
             
-            System.Console.ForegroundColor = ConsoleColor.Yellow
-            System.Console.WriteLine("   🔍 Please confirm your recovery settings:")
-            System.Console.WriteLine()
-            
-            System.Console.ForegroundColor = ConsoleColor.White
-            System.Console.WriteLine($"   Target Drive: {driveInfo.DrivePath}")
-            System.Console.WriteLine($"   Recovery Mode: {mode}")
-            System.Console.WriteLine($"   File Types: {If(fileTypes Is Nothing, "All types", String.Join(", ", fileTypes))}")
-            System.Console.WriteLine()
-            
-            System.Console.ForegroundColor = ConsoleColor.Red
-            System.Console.WriteLine("   ⚠️  IMPORTANT WARNINGS:")
-            System.Console.WriteLine("   • This operation requires administrator privileges")
-            System.Console.WriteLine("   • Recovery process may take significant time")
-            System.Console.WriteLine("   • Do not interrupt the process once started")
-            System.Console.WriteLine("   • Ensure target drive is not being used by other processes")
+            ' Beautiful confirmation header
+            System.Console.ForegroundColor = ConsoleColor.Green
+            System.Console.WriteLine("    ╔════════════════════════════════════════════════════════════════════════════╗")
+            System.Console.WriteLine("    ║                            CONFIRM RECOVERY SETTINGS                          ║")
+            System.Console.WriteLine("    ╚════════════════════════════════════════════════════════════════════════════╝")
             System.Console.WriteLine()
             
             System.Console.ForegroundColor = ConsoleColor.Cyan
-            System.Console.Write("   Do you want to proceed? (y/n): ")
+            System.Console.WriteLine("    🔍 Please review your recovery configuration:")
+            System.Console.WriteLine()
+            
+            ' Recovery settings display
+            System.Console.ForegroundColor = ConsoleColor.White
+            System.Console.WriteLine("    ┌─────────────────── RECOVERY CONFIGURATION ───────────────────┐")
+            System.Console.WriteLine($"    │  Target Drive:     {driveInfo.DrivePath,-35} │")
+            System.Console.WriteLine($"    │  Recovery Mode:    {mode,-35} │")
+            If folderInfo IsNot Nothing Then
+                Dim scopeText = If(folderInfo.ScanEntireDrive, "Full Drive Scan", folderInfo.Description)
+                System.Console.WriteLine($"    │  Scan Scope:       {scopeText,-35} │")
+                If Not folderInfo.ScanEntireDrive Then
+                    System.Console.WriteLine($"    │  Target Path:      {folderInfo.TargetPath,-35} │")
+                End If
+            End If
+            Dim fileTypeText = If(fileTypes Is Nothing, "All supported file types", String.Join(", ", fileTypes))
+            System.Console.WriteLine($"    │  File Types:       {fileTypeText,-35} │")
+            System.Console.WriteLine("    └────────────────────────────────────────────────────────────────┘")
+            System.Console.WriteLine()
+            
+            ' Important warnings
+            System.Console.ForegroundColor = ConsoleColor.Yellow
+            System.Console.WriteLine("    ┌─────────────────── IMPORTANT WARNINGS ───────────────────────┐")
+            System.Console.ForegroundColor = ConsoleColor.Red
+            System.Console.WriteLine("    │  ⚠️  Administrator privileges required for disk access          │")
+            System.Console.WriteLine("    │  ⚠️  Recovery process may take significant time to complete     │")
+            System.Console.WriteLine("    │  ⚠️  Do not interrupt the process once recovery has started    │")
+            System.Console.WriteLine("    │  ⚠️  Ensure target drive is not actively being used            │")
+            System.Console.ForegroundColor = ConsoleColor.Yellow
+            System.Console.WriteLine("    └────────────────────────────────────────────────────────────────┘")
+            System.Console.WriteLine()
+            
+            ' Professional confirmation prompt
+            System.Console.ForegroundColor = ConsoleColor.Green
+            System.Console.WriteLine("    ╭─────────────────────────────────────────────────────────────────╮")
+            System.Console.WriteLine("    │                    Ready to begin recovery?                        │")
+            System.Console.WriteLine("    ╰─────────────────────────────────────────────────────────────────╯")
+            System.Console.WriteLine()
+            
+            System.Console.ForegroundColor = ConsoleColor.Cyan
+            System.Console.Write("    ► Proceed with recovery? (y/n): ")
+            System.Console.ForegroundColor = ConsoleColor.White
             
             Dim response As String = System.Console.ReadLine()?.ToLower()
             Return response = "y" OrElse response = "yes"
@@ -634,6 +869,14 @@ Namespace UserInterface
             Public Property SelectedDrive As DriveInfo
             Public Property PhysicalDriveNumber As Integer
             Public Property DrivePath As String
+        End Class
+
+        Public Class FolderSelectionResult
+            Public Property Success As Boolean
+            Public Property GoBack As Boolean
+            Public Property ScanEntireDrive As Boolean
+            Public Property TargetPath As String
+            Public Property Description As String
         End Class
 
     End Class

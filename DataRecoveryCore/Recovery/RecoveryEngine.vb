@@ -1,4 +1,5 @@
 Imports Microsoft.Extensions.Logging
+Imports Microsoft.Extensions.Logging.Console
 Imports DataRecoveryCore.DiskAccess
 Imports DataRecoveryCore.FileSignatures
 Imports DataRecoveryCore.FileSystems
@@ -14,6 +15,7 @@ Namespace Recovery
         Implements IDisposable
 
         Private ReadOnly _logger As ILogger(Of RecoveryEngine)
+        Private ReadOnly _loggerFactory As ILoggerFactory
         Private ReadOnly _diskAccess As DiskAccessManager
         Private ReadOnly _signatureAnalyzer As FileSignatureAnalyzer
         Private _ntfsParser As NtfsParser
@@ -73,8 +75,14 @@ Namespace Recovery
         Public Sub New(logger As ILogger(Of RecoveryEngine))
             If logger Is Nothing Then Throw New ArgumentNullException(NameOf(logger))
             _logger = logger
-            _diskAccess = New DiskAccessManager(_logger)
-            _signatureAnalyzer = New FileSignatureAnalyzer(_logger)
+            
+            ' Create proper logger instances for dependent classes
+            _loggerFactory = LoggerFactory.Create(Sub(builder) builder.AddConsole().SetMinimumLevel(LogLevel.Information))
+            Dim diskLogger = _loggerFactory.CreateLogger(Of DiskAccessManager)()
+            Dim signatureLogger = _loggerFactory.CreateLogger(Of FileSignatureAnalyzer)()
+            
+            _diskAccess = New DiskAccessManager(diskLogger)
+            _signatureAnalyzer = New FileSignatureAnalyzer(signatureLogger)
         End Sub
 
         ''' <summary>
@@ -97,7 +105,8 @@ Namespace Recovery
                 End If
 
                 ' Initialize NTFS parser
-                _ntfsParser = New NtfsParser(_logger, _diskAccess)
+                Dim ntfsLogger = _loggerFactory.CreateLogger(Of NtfsParser)()
+                _ntfsParser = New NtfsParser(ntfsLogger, _diskAccess)
                 If Not _ntfsParser.Initialize() Then
                     _logger.LogWarning("NTFS parser initialization failed - will use signature-only recovery")
                     _ntfsParser = Nothing
@@ -426,6 +435,7 @@ Namespace Recovery
             If Not _isDisposed Then
                 If disposing Then
                     _diskAccess?.Dispose()
+                    _loggerFactory?.Dispose()
                 End If
                 _isDisposed = True
             End If
