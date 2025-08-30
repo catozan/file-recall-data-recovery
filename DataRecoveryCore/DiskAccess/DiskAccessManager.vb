@@ -133,6 +133,14 @@ Namespace DiskAccess
                 If _diskHandle = INVALID_HANDLE_VALUE Then
                     Dim errorCode = Marshal.GetLastWin32Error()
                     _logger.LogError($"Failed to open drive {drivePath}. Error: {errorCode}")
+                    
+                    ' For USB drives, try alternative access method
+                    If errorCode = 2 Then ' ERROR_FILE_NOT_FOUND
+                        _logger.LogWarning($"Physical drive {driveNumber} not found. This may be a USB drive or removable media.")
+                        _logger.LogWarning("USB drives and removable media require different access methods.")
+                        _logger.LogWarning("Try using 'Scan Entire Drive' mode or ensure the drive is properly connected.")
+                    End If
+                    
                     Return False
                 End If
 

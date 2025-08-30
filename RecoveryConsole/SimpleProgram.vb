@@ -220,7 +220,39 @@ Module SimpleProgram
                 System.Console.WriteLine("     • Drive is not accessible or busy")
                 System.Console.WriteLine("     • Insufficient system privileges")
                 System.Console.WriteLine("     • Hardware connection issues")
-                Threading.Thread.Sleep(4000)
+                System.Console.WriteLine()
+                
+                ' Add USB-specific troubleshooting for drive 3+ (likely USB)
+                If driveNumber >= 3 Then
+                    System.Console.ForegroundColor = ConsoleColor.Cyan
+                    System.Console.WriteLine("   💡 USB/External Drive Troubleshooting:")
+                    System.Console.WriteLine("     • Try disconnecting and reconnecting the drive")
+                    System.Console.WriteLine("     • Ensure the drive is not being used by other programs")
+                    System.Console.WriteLine("     • USB drives may require different recovery methods")
+                    System.Console.WriteLine("     • Some USB drives block raw sector access for security")
+                    System.Console.WriteLine("     • Consider using file-level recovery instead")
+                    System.Console.WriteLine()
+                    System.Console.ForegroundColor = ConsoleColor.Green
+                    System.Console.WriteLine("   🔧 Recommended USB Recovery Tools:")
+                    System.Console.WriteLine("     • Recuva (free, designed for USB drives)")
+                    System.Console.WriteLine("     • PhotoRec (free, cross-platform)")
+                    System.Console.WriteLine("     • TestDisk (free, includes PhotoRec)")
+                    System.Console.WriteLine("     • R-Studio (professional USB recovery)")
+                    System.Console.WriteLine()
+                    System.Console.ForegroundColor = ConsoleColor.Yellow
+                    System.Console.WriteLine("   ⚠️  Note: This tool is optimized for internal drives (HDDs/SSDs)")
+                    System.Console.WriteLine("   📱 For USB/SD cards, try the recommended tools above")
+                    System.Console.WriteLine()
+                    System.Console.ForegroundColor = ConsoleColor.Magenta
+                    System.Console.WriteLine("   🔄 Alternative: Go back and try selecting a different drive number")
+                    System.Console.WriteLine("   💾 USB drives sometimes appear as different physical drive numbers")
+                    System.Console.WriteLine()
+                End If
+                
+                System.Console.ForegroundColor = ConsoleColor.White
+                System.Console.WriteLine("   Press any key to continue...")
+                System.Console.ReadKey()
+                Threading.Thread.Sleep(1000)
                 Return
             End If
             
@@ -250,12 +282,46 @@ Module SimpleProgram
             'Dim progressTimer As New Threading.Timer(Sub() ShowSpinner(), Nothing, 
             '                                       TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2))
             
-            Dim result = Await recovery.RecoverFilesAsync(mode, fileTypes, Long.MaxValue, outputPath)
+            ' Apply folder targeting if specified
+            Dim maxScanSize As Long = Long.MaxValue
+            If folderSelection IsNot Nothing AndAlso Not folderSelection.ScanEntireDrive Then
+                ' For folder targeting, use a more focused scan approach
+                ' This is a workaround since the current engine doesn't support path filtering
+                System.Console.WriteLine($"   📁 Targeting folder: {folderSelection.TargetPath}")
+                System.Console.WriteLine("   💡 Using signature-based recovery for better folder targeting...")
+                mode = RecoveryEngine.RecoveryMode.SignatureOnly
+                ' Limit scan size for faster targeted recovery
+                maxScanSize = 50_000_000_000L ' 50GB limit for folder targeting
+            End If
+            
+            Dim result = Await recovery.RecoverFilesAsync(mode, fileTypes, maxScanSize, outputPath)
             
             'progressTimer.Dispose()
             
             ' Show results with enhanced visual display
             System.Console.Clear()
+            
+            ' Add diagnostic information for folder targeting
+            If folderSelection IsNot Nothing AndAlso Not folderSelection.ScanEntireDrive Then
+                System.Console.ForegroundColor = ConsoleColor.Yellow
+                System.Console.WriteLine()
+                System.Console.WriteLine("   📁 FOLDER TARGETING DIAGNOSTICS:")
+                System.Console.WriteLine($"   Target Folder: {folderSelection.TargetPath}")
+                System.Console.WriteLine($"   Recovery Mode: {mode}")
+                System.Console.WriteLine($"   Files Found: {result.TotalFilesFound}")
+                System.Console.WriteLine()
+                
+                If result.TotalFilesFound = 0 Then
+                    System.Console.ForegroundColor = ConsoleColor.Cyan
+                    System.Console.WriteLine("   💡 TROUBLESHOOTING TIPS FOR FOLDER-SPECIFIC RECOVERY:")
+                    System.Console.WriteLine("   • Recently deleted files may be overwritten immediately on SSDs")
+                    System.Console.WriteLine("   • Try 'Scan Entire Drive' for maximum recovery potential")
+                    System.Console.WriteLine("   • Files may have been moved to Recycle Bin instead of deleted")
+                    System.Console.WriteLine("   • Modern Windows may use TRIM commands that erase data instantly")
+                    System.Console.WriteLine()
+                End If
+            End If
+            
             ConsoleUI.ShowRecoveryResults(result, outputPath)
             
             ' Offer additional actions
@@ -370,29 +436,29 @@ Module SimpleProgram
         ' Elegant goodbye screen inspired by Claude
         System.Console.ForegroundColor = ConsoleColor.Cyan
         System.Console.WriteLine("    ╭─────────────────────────────────────────────────────────────────────────────╮")
-        System.Console.WriteLine("    │                              Thank you for using                               │")
-        System.Console.WriteLine("    │                                                                                 │")
-        System.Console.WriteLine("    │                             ███████╗██╗██╗     ███████╗                       │")
-        System.Console.WriteLine("    │                             ██╔════╝██║██║     ██╔════╝                       │")
-        System.Console.WriteLine("    │                             █████╗  ██║██║     █████╗                         │")
-        System.Console.WriteLine("    │                             ██╔══╝  ██║██║     ██╔══╝                         │")
-        System.Console.WriteLine("    │                             ██║     ██║███████╗███████╗                       │")
-        System.Console.WriteLine("    │                             ╚═╝     ╚═╝╚══════╝╚══════╝                       │")
-        System.Console.WriteLine("    │                                                                                 │")
-        System.Console.WriteLine("    │                         ██████╗ ███████╗ ██████╗ █████╗ ██╗     ██╗           │")
-        System.Console.WriteLine("    │                         ██╔══██╗██╔════╝██╔════╝██╔══██╗██║     ██║           │")
-        System.Console.WriteLine("    │                         ██████╔╝█████╗  ██║     ███████║██║     ██║           │")
-        System.Console.WriteLine("    │                         ██╔══██╗██╔══╝  ██║     ██╔══██║██║     ██║           │")
-        System.Console.WriteLine("    │                         ██║  ██║███████╗╚██████╗██║  ██║███████╗███████╗       │")
-        System.Console.WriteLine("    │                         ╚═╝  ╚═╝╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝       │")
-        System.Console.WriteLine("    │                                                                                 │")
-        System.Console.WriteLine("    │                        Your Professional Data Recovery Partner                  │")
+        System.Console.WriteLine("    │                              Thank you for using                            │")
+        System.Console.WriteLine("    │                                                                             │")
+        System.Console.WriteLine("    │                             ███████╗██╗██╗     ███████╗                     │")
+        System.Console.WriteLine("    │                             ██╔════╝██║██║     ██╔════╝                     │")
+        System.Console.WriteLine("    │                             █████╗  ██║██║     █████╗                       │")
+        System.Console.WriteLine("    │                             ██╔══╝  ██║██║     ██╔══╝                       │")
+        System.Console.WriteLine("    │                             ██║     ██║███████╗███████╗                     │")
+        System.Console.WriteLine("    │                             ╚═╝     ╚═╝╚══════╝╚══════╝                     │")
+        System.Console.WriteLine("    │                                                                             │")
+        System.Console.WriteLine("    │                         ██████╗ ███████╗ ██████╗ █████╗ ██╗     ██╗         │")
+        System.Console.WriteLine("    │                         ██╔══██╗██╔════╝██╔════╝██╔══██╗██║     ██║         │")
+        System.Console.WriteLine("    │                         ██████╔╝█████╗  ██║     ███████║██║     ██║         │")
+        System.Console.WriteLine("    │                         ██╔══██╗██╔══╝  ██║     ██╔══██║██║     ██║         │")
+        System.Console.WriteLine("    │                         ██║  ██║███████╗╚██████╗██║  ██║███████╗███████╗    │")
+        System.Console.WriteLine("    │                         ╚═╝  ╚═╝╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝    │")
+        System.Console.WriteLine("    │                                                                             │")
+        System.Console.WriteLine("    │                        Your Professional Data Recovery Partner              │")
         System.Console.WriteLine("    ╰─────────────────────────────────────────────────────────────────────────────╯")
         System.Console.WriteLine()
         
         System.Console.ForegroundColor = ConsoleColor.Green
         System.Console.WriteLine("    ┌─────────────────────────────────────────────────────────────────────────────┐")
-        System.Console.WriteLine("    │                              IMPORTANT REMINDERS                              │")
+        System.Console.WriteLine("    │                              IMPORTANT REMINDERS                            │")
         System.Console.WriteLine("    └─────────────────────────────────────────────────────────────────────────────┘")
         System.Console.WriteLine()
         

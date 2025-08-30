@@ -75,10 +75,10 @@ Namespace UserInterface
             System.Console.WriteLine()
             
             System.Console.ForegroundColor = ConsoleColor.White
-            System.Console.WriteLine($"      {GetIcon("�", "[>]")}  Advanced Recovery Engine       ║  Raw disk sector-level analysis")
+            System.Console.WriteLine($"      {GetIcon("�", "[>]")}  Advanced Recovery Engine        ║  Raw disk sector-level analysis")
             System.Console.WriteLine($"      {GetIcon("💾", "[D]")}  Multi-Format Support           ║  30+ file signatures detected")
             System.Console.WriteLine($"      {GetIcon("🛡️", "[S]")}  NTFS Deep Analysis             ║  Master File Table parsing")
-            System.Console.WriteLine($"      {GetIcon("�", "[?]")}  Intelligent Scanning           ║  Multiple recovery strategies")
+            System.Console.WriteLine($"      {GetIcon("�", "[?]")}  Intelligent Scanning            ║  Multiple recovery strategies")
             System.Console.WriteLine($"      {GetIcon("⚡", "[F]")}  High-Performance I/O           ║  Async operations & memory efficient")
             System.Console.WriteLine()
             
@@ -97,7 +97,7 @@ Namespace UserInterface
             ' Call to action with beautiful styling
             System.Console.ForegroundColor = ConsoleColor.Cyan
             System.Console.WriteLine("    ╭─────────────────────────────────────────────────────────────────────────────╮")
-            System.Console.WriteLine("    │                    Press any key to launch the Recovery Wizard                 │")
+            System.Console.WriteLine("    │                    Press any key to launch the Recovery Wizard              │")
             System.Console.WriteLine("    ╰─────────────────────────────────────────────────────────────────────────────╯")
             
             System.Console.ResetColor()
@@ -205,8 +205,16 @@ Namespace UserInterface
                 If drive.DriveType = DriveType.Fixed OrElse drive.DriveType = DriveType.Removable Then
                     validDrives.Add(drive)
                     
-                    System.Console.WriteLine($"   [{driveIndex}] 💽 Drive {drive.Name}")
+                    ' Add special indicator for USB/Removable drives
+                    Dim driveIcon = If(drive.DriveType = DriveType.Removable, "🔌", "💽")
+                    System.Console.WriteLine($"   [{driveIndex}] {driveIcon} Drive {drive.Name}")
                     System.Console.WriteLine($"       └─ Type: {GetDriveTypeDescription(drive.DriveType)}")
+                    
+                    If drive.DriveType = DriveType.Removable Then
+                        System.Console.ForegroundColor = ConsoleColor.Yellow
+                        System.Console.WriteLine($"       └─ ⚠️  USB/Removable drives may have limited recovery support")
+                        System.Console.ForegroundColor = ConsoleColor.White
+                    End If
                     
                     If drive.IsReady Then
                         Dim totalGB As Double = drive.TotalSize / (1024.0 * 1024.0 * 1024.0)
@@ -268,7 +276,7 @@ Namespace UserInterface
             ' Beautiful folder selection header
             System.Console.ForegroundColor = ConsoleColor.Magenta
             System.Console.WriteLine("    ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
-            System.Console.WriteLine("    ┃                           FOLDER TARGETING OPTIONS                          ┃")
+            System.Console.WriteLine("    ┃                           FOLDER TARGETING OPTIONS                             ┃")
             System.Console.WriteLine("    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
             System.Console.WriteLine()
             
@@ -410,7 +418,7 @@ Namespace UserInterface
             
             System.Console.ForegroundColor = ConsoleColor.Yellow
             System.Console.WriteLine("    ╔════════════════════════════════════════════════════════════════════════════╗")
-            System.Console.WriteLine("    ║                              COMMON FOLDERS                               ║")
+            System.Console.WriteLine("    ║                              COMMON FOLDERS                                ║")
             System.Console.WriteLine("    ╚════════════════════════════════════════════════════════════════════════════╝")
             System.Console.WriteLine()
             
@@ -671,6 +679,32 @@ Namespace UserInterface
             System.Console.WriteLine($"    ⚠️  Errors Encountered:   {result.ErrorCount:N0}")
             System.Console.WriteLine()
             
+            ' Show helpful information when no files found
+            If result.TotalFilesFound = 0 Then
+                System.Console.ForegroundColor = ConsoleColor.Yellow
+                System.Console.WriteLine("    ╔════════════════════════════════════════════════════════════════════════════╗")
+                System.Console.WriteLine("    ║                          WHY NO FILES WERE FOUND?                         ║")
+                System.Console.WriteLine("    ╚════════════════════════════════════════════════════════════════════════════╝")
+                System.Console.WriteLine()
+                System.Console.ForegroundColor = ConsoleColor.White
+                System.Console.WriteLine("    📝 Common reasons for zero results:")
+                System.Console.WriteLine()
+                System.Console.WriteLine("    💾 MODERN STORAGE: SSDs use TRIM commands that immediately erase deleted data")
+                System.Console.WriteLine("    ⚡ QUICK OVERWRITE: Files may be overwritten within seconds of deletion")
+                System.Console.WriteLine("    🗂️  RECYCLE BIN: Files might be in Recycle Bin, not actually 'deleted'")
+                System.Console.WriteLine("    🔄 FILE SYSTEM: NTFS may reuse space immediately for small files")
+                System.Console.WriteLine("    📁 WRONG PATH: The specified folder might not match the actual file location")
+                System.Console.WriteLine()
+                System.Console.ForegroundColor = ConsoleColor.Cyan
+                System.Console.WriteLine("    💡 SUGGESTIONS TO IMPROVE RECOVERY:")
+                System.Console.WriteLine("    • Try 'Scan Entire Drive' instead of folder targeting")
+                System.Console.WriteLine("    • Check Recycle Bin first before using recovery tools")
+                System.Console.WriteLine("    • Use recovery immediately after deletion (within minutes)")
+                System.Console.WriteLine("    • For SSDs, disable TRIM temporarily during recovery")
+                System.Console.WriteLine("    • Try 'Deep Signature Scan' mode for maximum coverage")
+                System.Console.WriteLine()
+            End If
+            
             If result.RecoveredFiles.Count > 0 Then
                 System.Console.ForegroundColor = ConsoleColor.Green
                 System.Console.WriteLine("    ╔════════════════════════════════════════════════════════════════════════════╗")
@@ -836,9 +870,9 @@ Namespace UserInterface
         Private Shared Function GetDriveTypeDescription(driveType As DriveType) As String
             Select Case driveType
                 Case DriveType.Fixed
-                    Return "Fixed Hard Drive"
+                    Return "Fixed Hard Drive (HDD/SSD)"
                 Case DriveType.Removable
-                    Return "Removable Drive"
+                    Return "USB/Removable Drive"
                 Case DriveType.Network
                     Return "Network Drive"
                 Case DriveType.CDRom
